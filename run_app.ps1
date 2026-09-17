@@ -11,6 +11,48 @@ function Quote-Path {
     return "'" + $Path.Replace("'", "''") + "'"
 }
 
+function Test-PortAvailable {
+    param([int]$Port)
+    $listener = $null
+    try {
+        $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Parse("127.0.0.1"), $Port)
+        $listener.Start()
+        return $true
+    }
+    catch {
+        return $false
+    }
+    finally {
+        if ($listener -ne $null) {
+            $listener.Stop()
+        }
+    }
+}
+
+function Get-OpenPort {
+    param(
+        [int]$Start,
+        [int]$End
+    )
+    for ($port = $Start; $port -le $End; $port++) {
+        if (Test-PortAvailable -Port $port) {
+            return $port
+        }
+    }
+    throw "No open port found between $Start and $End."
+}
+
+function Test-BackendHealth {
+    param([int]$Port)
+    try {
+        $response = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/" -TimeoutSec 2
+        return ($response.message -like "*EverVFX AI Brand Content Analyzer API is running*")
+    }
+    catch {
+        return $false
+    }
+}
+
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Backend = Join-Path $Root "backend"
 $Frontend = Join-Path $Root "frontend"
@@ -18,7 +60,7 @@ $PythonExe = Join-Path $Backend ".venv\Scripts\python.exe"
 $Requirements = Join-Path $Backend "requirements.txt"
 $DepsMarker = Join-Path $Backend ".venv\.deps-installed"
 
-Write-Host "AI Brand Content Analyzer - Easy Launcher" -ForegroundColor Green
+Write-Host "EverVFX AI Brand Content Analyzer - Easy Launcher" -ForegroundColor Green
 Write-Host "Project: $Root"
 
 if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
@@ -63,22 +105,50 @@ else {
     Write-Step "Frontend dependencies already installed"
 }
 
+$BackendPort = 8000
+$BackendAlreadyRunning = Test-BackendHealth -Port $BackendPort
+if (-not $BackendAlreadyRunning -and -not (Test-PortAvailable -Port $BackendPort)) {
+    $BackendPort = Get-OpenPort -Start 8001 -End 8010
+}
+
+$FrontendPort = Get-OpenPort -Start 3000 -End 3010
+$ApiUrl = "http://127.0.0.1:$BackendPort"
+$AppUrl = "http://localhost:$FrontendPort"
+
 Write-Step "Starting backend and frontend"
 
-$BackendCommand = "cd $(Quote-Path $Backend); .\.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000"
-$FrontendCommand = "cd $(Quote-Path $Frontend); npm run dev"
+if ($BackendAlreadyRunning) {
+    Write-Host "Backend is already running at $ApiUrl" -ForegroundColor Green
+}
+else {
+    $BackendCommand = "cd $(Quote-Path $Backend); .\.venv\Scripts\python -m uvicorn app.main:app --reload --host 127.0.0.1 --port $BackendPort"
+    Start-Process powershell -ArgumentList @("-NoExit", "-ExecutionPolicy", "Bypass", "-Command", $BackendCommand)
 
-Start-Process powershell -ArgumentList @("-NoExit", "-ExecutionPolicy", "Bypass", "-Command", $BackendCommand)
-Start-Sleep -Seconds 3
+    Write-Step "Waiting for backend health check"
+    $BackendReady = $false
+    for ($i = 0; $i -lt 30; $i++) {
+        Start-Sleep -Seconds 1
+        if (Test-BackendHealth -Port $BackendPort) {
+            $BackendReady = $true
+            break
+        }
+    }
+
+    if (-not $BackendReady) {
+        Write-Host "Backend did not respond yet. Check the backend PowerShell window for errors." -ForegroundColor Yellow
+    }
+}
+
+$FrontendCommand = "cd $(Quote-Path $Frontend); `$env:NEXT_PUBLIC_API_URL=$(Quote-Path $ApiUrl); npm run dev -- --port $FrontendPort"
 Start-Process powershell -ArgumentList @("-NoExit", "-ExecutionPolicy", "Bypass", "-Command", $FrontendCommand)
 
 Write-Step "Opening the app"
 Start-Sleep -Seconds 6
-Start-Process "http://localhost:3000"
+Start-Process $AppUrl
 
 Write-Host ""
-Write-Host "App URL:     http://localhost:3000" -ForegroundColor Green
-Write-Host "Backend API: http://localhost:8000/docs" -ForegroundColor Green
+Write-Host "App URL:     $AppUrl" -ForegroundColor Green
+Write-Host "Backend API: $ApiUrl/docs" -ForegroundColor Green
 Write-Host ""
 Write-Host "Keep the two PowerShell server windows open while using the app."
 Write-Host "Close those windows when you want to stop the app."

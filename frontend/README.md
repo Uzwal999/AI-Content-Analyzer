@@ -15,7 +15,7 @@ From the project root:
 Create `frontend/.env.local`:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
 ```
 
 Then run:
@@ -26,6 +26,12 @@ npm run dev
 ```
 
 Open `http://localhost:3000`.
+
+If the analysis API cannot connect, confirm the backend URL opens in the browser:
+
+```text
+http://127.0.0.1:8000
+```
 
 ## Vercel
 

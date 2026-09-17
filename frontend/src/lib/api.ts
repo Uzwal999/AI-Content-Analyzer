@@ -1,6 +1,6 @@
 import type { AnalysisResult, AnalyzeRequest, BrandProfile } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -13,7 +13,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const message = await response.text();
-    throw new Error(message || `Request failed with status ${response.status}`);
+    throw new Error(message || `Request to ${API_URL}${path} failed with status ${response.status}`);
   }
 
   return response.json() as Promise<T>;
@@ -29,4 +29,3 @@ export function analyzeCaption(payload: AnalyzeRequest): Promise<AnalysisResult>
     body: JSON.stringify(payload)
   });
 }
-

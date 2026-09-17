@@ -105,8 +105,44 @@ Frontend: `http://localhost:3000`
 Local frontend API setting:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
 ```
+
+## Fix: Unable To Connect To Analysis API
+
+If the frontend shows an API connection error on another PC:
+
+1. Use the launcher from the project root:
+
+```powershell
+.\run_app.bat
+```
+
+2. Keep both PowerShell windows open.
+
+3. Open the backend health URL shown by the launcher. It should return:
+
+```json
+{"message":"EverVFX AI Brand Content Analyzer API is running."}
+```
+
+4. If running manually, start backend first:
+
+```powershell
+cd backend
+.\.venv\Scripts\activate
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+5. Then start frontend with the matching API URL:
+
+```powershell
+cd frontend
+$env:NEXT_PUBLIC_API_URL="http://127.0.0.1:8000"
+npm run dev
+```
+
+If the frontend runs on `3001` or another port, the backend now allows local development ports automatically.
 
 ## Vercel Deployment
 

@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { RotateCcw, Send, WandSparkles } from "lucide-react";
 
 import { sampleCaptions } from "@/data/sampleCaptions";
-import { analyzeCaption, fetchBrands } from "@/lib/api";
+import { API_URL, analyzeCaption, fetchBrands } from "@/lib/api";
 import type { AnalysisResult, AnalyzeRequest, BrandName, CampaignGoal, Platform, PostType } from "@/lib/types";
 
 import ResultsPanel from "./ResultsPanel";
@@ -90,7 +90,7 @@ export default function AnalyzerForm() {
   useEffect(() => {
     fetchBrands()
       .then((brands) => setApiStatus(`${Object.keys(brands).length} brand profiles loaded from FastAPI`))
-      .catch(() => setApiStatus("FastAPI backend not connected yet. Run run_app.bat or start localhost:8000."));
+      .catch(() => setApiStatus(`FastAPI backend not connected yet. Expected API: ${API_URL}`));
   }, []);
 
   function updateField<Key extends keyof AnalyzeRequest>(key: Key, value: AnalyzeRequest[Key]) {
@@ -145,7 +145,7 @@ export default function AnalyzerForm() {
       setSubmittedRequest(payload);
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : "Unable to analyze this caption.";
-      setError(message.includes("Failed to fetch") ? "Unable to connect to analysis API. Please make sure the FastAPI backend is running on port 8000." : message);
+      setError(message.includes("Failed to fetch") ? `Unable to connect to analysis API at ${API_URL}. Start the backend or run run_app.bat.` : message);
     } finally {
       setLoading(false);
     }
